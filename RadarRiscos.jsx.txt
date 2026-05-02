@@ -1,0 +1,228 @@
+import React, { useState, useEffect } from 'react';
+
+export default function RadarRiscos({ meses, grupos }) {
+  const [mesSelecionado, setMesSelecionado] = useState(meses[0] || "");
+  const [grupoSelecionado, setGrupoSelecionado] = useState("TODOS");
+  const [loading, setLoading] = useState(false);
+  const [dados, setDados] = useState({ criticas: [], atencao: [], esperado: [], total: 0 });
+
+  useEffect(() => {
+    if (!mesSelecionado) return;
+    
+    let isMounted = true;
+    setLoading(true);
+
+    if (window.google && window.google.script) {
+      window.google.script.run
+        .withSuccessHandler((res) => {
+          if (isMounted) {
+            setDados(res || { criticas: [], atencao: [], esperado: [], total: 0 });
+            setLoading(false);
+          }
+        })
+        .withFailureHandler((err) => {
+          console.error(err);
+          if (isMounted) setLoading(false);
+        })
+        .apiGetDadosRadar(mesSelecionado, grupoSelecionado);
+    } else {
+      if (isMounted) setLoading(false);
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [mesSelecionado, grupoSelecionado]);
+
+  return (
+    <div className="p-6 bg-slate-50 min-h-screen">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div>
+          <h1 className="text-3xl font-black text-slate-800 tracking-tight">Radar de Riscos</h1>
+          <p className="text-slate-500 mt-1">Monitoramento Semáforo de Desvios Orçamentários</p>
+        </div>
+        
+        <div className="flex gap-3 w-full md:w-auto">
+          <select 
+            className="p-2 border border-slate-300 rounded-lg bg-white text-slate-700 shadow-sm w-full md:w-40"
+            value={mesSelecionado} 
+            onChange={e => setMesSelecionado(e.target.value)}
+          >
+            {meses.map(m => <option key={m} value={m}>{m}</option>)}
+          </select>
+          <select 
+            className="p-2 border border-slate-300 rounded-lg bg-white text-slate-700 shadow-sm w-full md:w-48"
+            value={grupoSelecionado} 
+            onChange={e => setGrupoSelecionado(e.target.value)}
+          >
+            <option value="TODOS">Todos os Grupos</option>
+            {grupos.map(g => <option key={g.id} value={g.nome}>{g.nome}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center items-center h-64">
+          <div className="w-12 h-12 border-4 border-slate-200 border-t-sky-500 rounded-full animate-spin"></div>
+        </div>
+      ) : (
+        <>
+          {/* SEMÁFOROS - CARDS SUPERIORES */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            {/* Críticas (Vermelho) */}
+            <div className="bg-white border border-red-200 rounded-2xl p-6 flex flex-row items-center shadow-lg relative overflow-hidden">
+                <div className="absolute -right-6 -top-6 w-32 h-32 bg-red-500 opacity-5 rounded-full animate-ping"></div>
+                <div className="w-4 h-20 bg-red-500 rounded-full mr-5 shadow-[0_0_15px_rgba(239,68,68,0.8)] animate-pulse"></div>
+                <div>
+                   <h3 className="text-red-800 font-bold text-xl">Contas Críticas</h3>
+                   <p className="text-red-500 text-sm font-medium">Desvio {'>'} 20%</p>
+                   <p className="text-3xl font-black text-red-700 mt-2">
+                       {dados.criticas.length} <span className="text-base font-normal text-slate-400">de {dados.total}</span>
+                   </p>
+                </div>
+            </div>
+
+            {/* Atenção (Amarelo) */}
+            <div className="bg-white border border-amber-200 rounded-2xl p-6 flex flex-row items-center shadow-lg relative overflow-hidden">
+                <div className="absolute -right-6 -top-6 w-32 h-32 bg-amber-500 opacity-5 rounded-full animate-ping" style={{animationDelay: '0.3s'}}></div>
+                <div className="w-4 h-20 bg-amber-500 rounded-full mr-5 shadow-[0_0_15px_rgba(245,158,11,0.8)] animate-pulse" style={{animationDelay: '0.3s'}}></div>
+                <div>
+                   <h3 className="text-amber-800 font-bold text-xl">Em Atenção</h3>
+                   <p className="text-amber-500 text-sm font-medium">10% {'<'} Desvio {'<='} 20%</p>
+                   <p className="text-3xl font-black text-amber-700 mt-2">
+                       {dados.atencao.length} <span className="text-base font-normal text-slate-400">de {dados.total}</span>
+                   </p>
+                </div>
+            </div>
+
+            {/* Esperado (Verde) */}
+            <div className="bg-white border border-emerald-200 rounded-2xl p-6 flex flex-row items-center shadow-lg relative overflow-hidden">
+                <div className="absolute -right-6 -top-6 w-32 h-32 bg-emerald-500 opacity-5 rounded-full animate-ping" style={{animationDelay: '0.6s'}}></div>
+                <div className="w-4 h-20 bg-emerald-500 rounded-full mr-5 shadow-[0_0_15px_rgba(16,185,129,0.8)] animate-pulse" style={{animationDelay: '0.6s'}}></div>
+                <div>
+                   <h3 className="text-emerald-800 font-bold text-xl">Dentro do Esperado</h3>
+                   <p className="text-emerald-500 text-sm font-medium">Desvio {'<='} 10%</p>
+                   <p className="text-3xl font-black text-emerald-700 mt-2">
+                       {dados.esperado.length} <span className="text-base font-normal text-slate-400">de {dados.total}</span>
+                   </p>
+                </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            
+            {/* PAINEL 1: Foco em Críticas (Evolução de 6 meses) */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                <h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]"></span>
+                    Detalhamento Crítico & Histórico 6M
+                </h2>
+
+                <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
+                    {dados.criticas.length === 0 ? (
+                        <p className="text-slate-500 text-center py-8">Nenhuma conta crítica neste mês. Ótimo trabalho!</p>
+                    ) : (
+                        dados.criticas.map(conta => (
+                            <div key={conta.idConta} className="border border-slate-100 bg-slate-50 rounded-xl p-4 flex flex-col md:flex-row justify-between gap-6">
+                                <div className="flex-1">
+                                    <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">{conta.grupo}</p>
+                                    <p className="text-slate-800 font-semibold mb-2">{conta.conta}</p>
+                                    <div className="flex gap-4">
+                                        <div>
+                                            <p className="text-[10px] text-slate-500 uppercase">Variação %</p>
+                                            <p className="text-red-600 font-black">+{conta.varPct.toFixed(1)}%</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] text-slate-500 uppercase">Impacto R$</p>
+                                            <p className="text-slate-700 font-bold font-mono text-sm">R$ {conta.varVal.toLocaleString('pt-BR')}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                {/* MINIGRÁFICO EM CSS PURO - ULTIMOS 6 MESES */}
+                                <div className="flex items-end justify-between h-20 w-full md:w-48 bg-white border border-slate-100 rounded-lg p-2 gap-1 relative">
+                                    <span className="absolute top-1 left-2 text-[8px] text-slate-400">Tendência de Desvio</span>
+                                    {conta.historico6Meses.map((h, i) => {
+                                        // Limita a barra visual a 100%
+                                        const hPct = Math.min(Math.max(h.varPct, 0), 100);
+                                        return (
+                                            <div key={i} className="flex flex-col items-center flex-1 group relative">
+                                                {/* Tooltip Hover Simples */}
+                                                <div className="hidden group-hover:block absolute -top-8 bg-slate-800 text-white text-[10px] py-1 px-2 rounded opacity-90 z-10 whitespace-nowrap">
+                                                    {h.varPct.toFixed(1)}%
+                                                </div>
+
+                                                <div 
+                                                    className={`w-full max-w-[12px] rounded-t-sm transition-all duration-300 ${h.varPct > 20 ? 'bg-red-500' : (h.varPct > 10 ? 'bg-amber-400' : 'bg-emerald-400')}`} 
+                                                    style={{ height: `${hPct}%`, minHeight: '4px' }}
+                                                ></div>
+                                                <span className="text-[8px] text-slate-400 mt-1 font-mono tracking-tighter">
+                                                    {h.mes.split('-')[1]}
+                                                </span>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+            </div>
+
+            {/* PAINEL 2: Foco no Esperado e Impacto de PDSA */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                <h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"></span>
+                    Contas no Alvo & PDSAs Relacionados
+                </h2>
+
+                <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
+                    {dados.esperado.length === 0 ? (
+                        <p className="text-slate-500 text-center py-8">Nenhuma conta se qualifica como dentro do alvo nesta leitura.</p>
+                    ) : (
+                        dados.esperado.map(conta => (
+                            <div key={conta.idConta} className="border border-emerald-50/50 bg-emerald-50/20 rounded-xl p-4">
+                                <div className="flex justify-between items-start mb-2">
+                                    <div>
+                                        <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">{conta.grupo}</p>
+                                        <p className="text-slate-800 font-semibold">{conta.conta}</p>
+                                    </div>
+                                    <div className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold">
+                                        {conta.varPct <= 0 ? '' : '+'}{conta.varPct.toFixed(1)}%
+                                    </div>
+                                </div>
+
+                                {conta.pdsas && conta.pdsas.length > 0 ? (
+                                    <div className="mt-3 border-t border-slate-100 pt-3">
+                                        <p className="text-[10px] text-slate-500 uppercase font-bold mb-2">Histórico PDSA (Retenção Positiva)</p>
+                                        <div className="space-y-2">
+                                            {conta.pdsas.slice(0, 2).map((pdsa, idx) => (
+                                                <div key={idx} className="bg-white border border-slate-200 rounded p-2 text-xs flex gap-3">
+                                                    <div className="min-w-16">
+                                                        <span className="bg-slate-100 text-slate-600 px-1 py-0.5 rounded font-mono text-[9px] block text-center mb-1">{pdsa.mesRef}</span>
+                                                        <span className={`text-[8px] px-1 py-0.5 rounded block text-center ${pdsa.status === 'CONCLUIDO' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                                            {pdsa.status}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-slate-600 flex-1 line-clamp-2 italic">"{pdsa.plan}"</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="mt-2 text-xs text-slate-400 italic flex items-center gap-1">
+                                        Nenhum registro de PDSA prévio encontrado. O bom resultado atual é orgânico.
+                                    </div>
+                                )}
+                            </div>
+                        ))
+                    )}
+                </div>
+            </div>
+
+          </div>
+        </>
+      )}
+    </div>
+  );
+}

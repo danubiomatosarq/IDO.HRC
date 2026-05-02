@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IDO Dashboard</title>
+  <?!= include('Stylesheet'); ?>
+</head>
+
+<body>
+  <div id="root"></div>
+
+  <!-- Load the bundle as text -->
+  <?!= include('JavaScript'); ?>
+
+  <!-- Execute the bundle -->
+  <script>
+    (function () {
+      var bundle = document.getElementById('app-bundle');
+      if (bundle) {
+        var script = document.createElement('script');
+        script.textContent = bundle.textContent;
+        document.body.appendChild(script);
+        bundle.remove(); // Clean up memory
+      } else {
+        console.error("Critical: App bundle not found.");
+        document.body.innerHTML = "<h3>Erro: Falha ao carregar a aplicação (Bundle não encontrado).</h3>";
+      }
+    })();
+  </script>
+
+  <!-- Filtro de Busca nos Acordeões de Planos e Boas Práticas -->
+  <script>
+  (function () {
+    var FILTER_PLANOS = 'ido-filter-planos';
+    var FILTER_BOAS   = 'ido-filter-boas';
+
+    function createFilterBar(id, placeholder, accentColor) {
+      var isGreen = accentColor === 'emerald';
+      var bar = document.createElement('div');
+      bar.id = id;
+      bar.style.cssText = 'padding:10px 16px;display:flex;align-items:center;gap:8px;'
+        + 'border-bottom:1px solid ' + (isGreen ? '#d1fae5' : '#e5e7eb') + ';'
+        + 'background:' + (isGreen ? '#ecfdf5' : '#f9fafb') + ';';
+
+      var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"'
+        + ' stroke="' + (isGreen ? '#059669' : '#6b7280') + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+        + '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>';
+
+      var borderNormal = isGreen ? '#a7f3d0' : '#d1d5db';
+      var borderFocus  = isGreen ? '#10b981' : '#6366f1';
+
+      bar.innerHTML = svg
+        + '<input type="text" placeholder="' + placeholder + '" style="flex:1;padding:7px 12px;font-size:13px;'
+        + 'border:1px solid ' + borderNormal + ';border-radius:8px;outline:none;background:#fff;color:#374151;'
+        + 'transition:border-color .2s" '
+        + 'onfocus="this.style.borderColor=\'' + borderFocus + '\'" '
+        + 'onblur="this.style.borderColor=\'' + borderNormal + '\'">'
+        + '<span style="font-size:11px;color:#9ca3af;white-space:nowrap" data-count></span>';
+
+      return bar;
+    }
+
+    function filterTableRows(table, query) {
+      if (!table) return 0;
+      var tbody = table.querySelector('tbody');
+      if (!tbody) return 0;
+      var rows = tbody.querySelectorAll('tr');
+      var q = (query || '').toLowerCase().trim();
+      var visible = 0, hideNext = false;
+
+      for (var i = 0; i < rows.length; i++) {
+        var row = rows[i];
+        // Sub-row detection: if previous main row was hidden and this row has no rowSpan cells, hide it
+        if (hideNext) {
+          var isSubRow = true;
+          row.querySelectorAll('td').forEach(function (td) {
+            if (td.getAttribute('rowspan') && parseInt(td.getAttribute('rowspan')) > 1) isSubRow = false;
+          });
+          if (isSubRow && row.querySelectorAll('td').length <= 2) {
+            row.style.display = 'none';
+            hideNext = false;
+            continue;
+          }
+          hideNext = false;
+        }
+
+        var text = row.textContent.toLowerCase();
+        var hasRowSpan = false;
+        row.querySelectorAll('td').forEach(function (td) {
+          if (td.getAttribute('rowspan') && parseInt(td.getAttribute('rowspan')) > 1) hasRowSpan = true;
+        });
+
+        if (!q || text.indexOf(q) !== -1) {
+          row.style.display = '';
+          visible++;
+        } else {
+          row.style.display = 'none';
+          if (hasRowSpan) hideNext = true;
+        }
+      }
+      return visible;
+    }
+
+    function injectFilter(headingSubstr, filterId, placeholder, color) {
+      if (document.getElementById(filterId)) return;
+
+      // Find accordion button containing the heading text
+      var btns = document.querySelectorAll('button');
+      var btn = null;
+      for (var i = 0; i < btns.length; i++) {
+        if (btns[i].textContent.indexOf(headingSubstr) !== -1) { btn = btns[i]; break; }
+      }
+      if (!btn) return;
+
+      // Table container = next sibling of the button
+      var container = btn.nextElementSibling;
+      if (!container) return;
+
+      var table = container.querySelector('table');
+      if (!table) return;
+
+      // Create and insert filter bar
+      var bar = createFilterBar(filterId, placeholder, color);
+      container.insertBefore(bar, container.firstChild);
+
+      var input = bar.querySelector('input');
+      var countEl = bar.querySelector('[data-count]');
+
+      input.addEventListener('input', function () {
+        var vis = filterTableRows(table, this.value);
+        var total = table.querySelectorAll('tbody tr').length;
+        countEl.textContent = this.value.trim() ? vis + ' de ' + total : '';
+      });
+    }
+
+    // Watch for DOM changes (React renders accordion content dynamically)
+    var obs = new MutationObserver(function () {
+      injectFilter(
+        'Planos em Vig',
+        FILTER_PLANOS,
+        '\uD83D\uDD0D Buscar por conta, grupo, status, plano...',
+        'gray'
+      );
+      injectFilter(
+        'Estrat\u00e9gias de Gest\u00e3o',
+        FILTER_BOAS,
+        '\uD83D\uDD0D Buscar por conta, grupo, m\u00eas, boas pr\u00e1ticas...',
+        'emerald'
+      );
+    });
+    obs.observe(document.body, { childList: true, subtree: true });
+  })();
+  </script>
+</body>
+
+</html>

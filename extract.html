@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<body>
+  <div id="output"></div>
+  <script>
+    fetch('JavaScript.txt').then(r => r.text()).then(js => {
+      let out = "";
+      function findContext(str, num) {
+        let idx = js.indexOf(str);
+        while(idx !== -1) {
+          out += `=== MATCH for "${str}" ===\n` + js.substring(Math.max(0, idx - 200), idx + str.length + 1000) + "\n\n";
+          idx = js.indexOf(str, idx + 1);
+        }
+      }
+      findContext("Suas Estratégias para o Ciclo");
+      findContext("O que fizemos de bom");
+      findContext("Rodar");
+      findContext("O que fizemos");
+      document.getElementById('output').innerText = out;
+    });
+  </script>
+</body>
+</html>
